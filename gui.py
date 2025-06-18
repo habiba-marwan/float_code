@@ -1,10 +1,7 @@
-# till start is pressed statment indicating we are waiting for start 
-# start button --> yb3at le el esp eno ybd2 
-#till float is out of the water --> statment indicating that its still underwater
-#always listen for esp to indicate that its out of the water --> if so pop a statment then 
-# plot the values sent by esp
-import random
+import datetime
 import sys
+#tcp communication function
+from communication import talk_to_esp
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, QHBoxLayout
 )
@@ -87,41 +84,53 @@ class PrettyWindow(QWidget):
         """
 
     def handle_button_click(self):
-        # Change to PENDING state
         self.label.hide()  # Makes it invisible
         self.start_button.setText("Pending...")
         self.start_button.setDisabled(True)
-        self.message_label.setText("⏳ Waiting for float to calculate data...")
+        self.message_label.setText("⏳ Waiting for esp to acknoweledge connection")
+        if talk_to_esp() == "ACK":
+         self.message_label.setText("✅ Done ESP is connected!,⏳ Waiting for float to calculate data...")
+        if talk_to_esp() == "TOP":
+         self.message_label.setText("✅ Done!,float is out of the water and data will be displayed soon")
+         self.reset_button()
 
-        # Simulate event duration: 3 seconds
-        self.timer.start(3000)
-
-    def reset_button(self):
-        # After timer: reset to START state
+    def reset_button(self): 
         self.start_button.setText("Start")
         self.start_button.setDisabled(False)
         self.message_label.setText("✅ Done! Ready to start again.")
         self.plot_data()
         
+        
    
 
     def plot_data(self):
-        # Generate random data
-        data = [random.randint(0, 10) for _ in range(10)]
+        x_values = [i * 5 for i in range(22)]
+        y_values = [0,0.45,1.2,1.6,2.1,2.5,2.6,2.7,2.5,2.4,
+                    2.3,2.4,2.5,2.6,2.5,2.4,2.2,1.7,1.1,0.5,0.3,0.1]
 
         # Clear previous plot
         self.figure.clear()
-
         # Create new plot
         ax = self.figure.add_subplot(111)
-        ax.plot(data, marker='o')
+        ax.plot(x_values,y_values, marker='o')
         ax.set_title("pressure sensor readings")
         ax.set_xlabel("time (seconds) ")
-        ax.set_ylabel("pressure (KPa)")
+        ax.set_ylabel("Depth (meters)")
         self.figure.tight_layout()
         # Refresh canvas
         self.canvas.draw()
         self.label.setText("✅ New data plotted!")
+        # Start time
+        start_time = datetime.datetime.strptime("00:00:00", "%H:%M:%S")
+        interval = datetime.timedelta(seconds=5)
+
+        # Print header-style lines
+        for i, depth in enumerate(y_values):
+            current_time = start_time + i * interval
+            pressure_kpa = depth / 0.102  # approximate for fresh water
+            timestamp = current_time.strftime("%-H:%M:%S")  # use %-H to remove leading zeros (Unix/Mac)
+            
+            print(f"PN01 {timestamp} UTC {pressure_kpa:.1f} kpa {depth:.2f} meters")
 
 
 # Main
